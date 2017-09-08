@@ -1,0 +1,12 @@
+const http = require('http')
+
+// var app = require('../app')
+// var server = http.createServer(app).listen(3333)
+
+var handler = require('../lib/webhook')
+var server = http.createServer((req, res) => {
+	handler(req, res, err => {
+		res.statusCode = 404
+		res.end('no such location')
+	})
+}).listen(3333)
