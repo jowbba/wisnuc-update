@@ -65,3 +65,7 @@ demo/
 out/
 # upload layer
 tmp/
+
+cache/
+temp/
+config.json

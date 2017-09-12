@@ -1,19 +1,12 @@
-const fs = require('fs')
-
+const schedule = require('../lib/schedule')
 const createHandler = require('github-webhook-handler')
-const handler = createHandler({path: '/webhook', secret: 'wisnuc'})
 
-// handler.on('push', (event) => {
-// 	console.log(event, 'push')
-// })
+const handler = createHandler({path: '/webhook', secret: 'wisnuc'})
+schedule.init()
 
 handler.on('release', (event) => {
 	console.log(event, 'release')
-	let stream = fs.createWriteStream(__dirname + '/event.json')
-	stream.write(JSON.stringify(event, undefined, '\t'), 'utf8', (err) => {
-		console.log('写入完成',err)
-	})
-
+	schedule.addEvent(event)
 })
 
 module.exports = handler
