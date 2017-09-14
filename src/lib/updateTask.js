@@ -2,6 +2,7 @@ var promise = require('bluebird')
 var fs = promise.promisifyAll(require('fs'))
 var path = require('path')
 var zlib = require('zlib')
+var tar = require('tar-fs')
 var request = require('request')
 var mkdirp = require('mkdirp')
 var rimraf = require('rimraf')
@@ -20,7 +21,7 @@ class UpdateTask {
 		this.configPath = path.join(this.dirPath, 'event.json')
 		this.ballTempPath = path.join(this.schedule.tempdirPath, this.tag) + '.tar.gz'
 		this.ballPath = path.join(this.dirPath, this.tag) + '.tar.gz'
-		this.zlibPath = path.join(this.dirPath, this.tag)
+		this.tarPath = path.join(this.dirPath, this.tag) + '.tar'
 	}
 
 	setState(nextState) {
@@ -121,8 +122,14 @@ class UpdateTask {
 	}
 
 	enterZlibState() {
-		// let input = fs.createReadStream(this.ballPath)
-		// let output = fs.createWriteStream()
+		let input = fs.createReadStream(this.ballPath)
+		let output = fs.createWriteStream(this.tarPath)
+		output.on('finish', () => {
+			let input = fs.createReadStream(this.tarPath)
+			input.pipe(tar.extract(this.dirPath))
+		})
+		let z = zlib.createUnzip()
+		input.pipe(z).pipe(output)
 	}
 }
 
