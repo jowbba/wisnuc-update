@@ -1,12 +1,10 @@
 var promise = require('bluebird')
 var fs = promise.promisifyAll(require('fs'))
 var path = require('path')
+var zlib = require('zlib')
+var request = require('request')
 var mkdirp = require('mkdirp')
 var rimraf = require('rimraf')
-		// let stream = fs.createWriteStream(__dirname + '/event.json')
-		// stream.write(JSON.stringify(event, undefined, '\t'), 'utf8', (err) => {
-		// 	console.log('写入完成',err)
-		// })
 
 
 class UpdateTask {
@@ -20,6 +18,9 @@ class UpdateTask {
 		this.state = 'ready'
 		this.dirPath = path.join(this.schedule.cachedirPath, this.tag)
 		this.configPath = path.join(this.dirPath, 'event.json')
+		this.ballTempPath = path.join(this.schedule.tempdirPath, this.tag) + '.tar.gz'
+		this.ballPath = path.join(this.dirPath, this.tag) + '.tar.gz'
+		this.zlibPath = path.join(this.dirPath, this.tag)
 	}
 
 	setState(nextState) {
@@ -27,15 +28,23 @@ class UpdateTask {
 			case 'ready': 
 				this.leaveReadyState()
 				break
-
 			case 'log':
 				this.leaveLogState()
+				break
+			case 'download':
+				this.leaveDownloadState()
 				break
 		}
 
 		switch (nextState) {
 			case 'log' :
 				this.enterLogState()
+				break
+			case 'download':
+				this.enterDownloadState()
+				break
+			case 'zlib':
+				this.enterZlibState()
 				break
 		}
 	}
@@ -50,7 +59,11 @@ class UpdateTask {
 	}
 
 	leaveLogState() {
+		console.log(`${this.tag} leave log state`)
+	}
 
+	leaveDownloadState() {
+		console.log(`${this.tag} leave download state`)
 	}
 
 	async enterLogState() {
@@ -58,14 +71,58 @@ class UpdateTask {
 		this.state = 'log'
 		try{
 			console.log('正在log...')
-			let createTag = mkdirp(this.dirPath)
+			mkdirp(this.dirPath)
 
-			console.log('创建tag文件夹...', createTag)
+			console.log('创建tag文件夹...')
 			let createConfig = await fs.writeFileAsync(this.configPath, JSON.stringify(this.event, undefined, '\t'))
 			console.log('创建event文件...', createConfig)
+			this.setState('download')
 		}catch(e) {
 			console.log(e)
 		}
+	}
+
+	async enterDownloadState() {
+		console.log(`${this.tag} enter download state`)
+		this.state = 'download'
+
+		let options = {
+			url: this.tarball_url,
+			headers: {
+				'User-Agent': '411981379@qq.com',
+				'Accept-Encoding': 'gzip,deflate'
+			}
+		}
+		console.log(this.ballTempPath)
+		console.log(options)
+		let index = 0
+		let stream = fs.createWriteStream(this.ballTempPath)
+		stream.on('drain', () => {
+			if (index != 10) index++
+			else {
+				console.log(`tag ball has been written ${(stream.bytesWritten/1024/1024).toFixed(2)} M`)
+				index = 0
+			}
+		})
+		stream.on('finish', () => {
+			console.log(`tag ball has been written finish`)
+			fs.rename(this.ballTempPath, this.ballPath, err => {
+				if (err) throw err
+				console.log('file move success')
+				this.setState('zlib')
+			})
+		})
+		stream.on('error', err => console.log('stream error : ', err))
+
+		let handle = request(options)
+		handle.on('error', err => console.log('request error:', err))
+		handle.on('response', res => console.log(`get response : `, res.statusCode))
+		handle.pipe(stream)
+	}
+
+	enterZlibState() {
+		// let input = fs.createReadStream(this.ballPath)
+		// let output = fs.createWriteStream()
 	}
 }
 

@@ -53,7 +53,7 @@ class Schedule {
 		if (this.lock) return
 		//else run task in readylist
 		if (this.tasks.length) {
-			console.log('enter schedule')
+			console.log('add task into schedule')
 			this.lock = true
 			this.working.push(this.tasks.splice(0, 1)[0])
 			this.working[0].beginUpdate()
