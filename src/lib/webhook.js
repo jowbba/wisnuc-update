@@ -7,7 +7,6 @@ schedule.init().catch(e => {
 })
 
 handler.on('release', (event) => {
-	// console.log(event, 'release')
 	console.log('release event trigger')
 	schedule.addEvent(event)
 })
