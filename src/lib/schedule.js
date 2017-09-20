@@ -56,7 +56,7 @@ class Schedule {
 			}else {
 				console.log(`config not exist`)
 				//config not exist & create config
-				await fs.writeFileAsync(this.configPath, JSON.stringify({version: 0}))
+				await fs.writeFileAsync(this.configPath, JSON.stringify({version: 0, service: ''}))
 				this.config = {version: 0}
 			}
 		}catch (e) {
@@ -64,25 +64,26 @@ class Schedule {
 			throw e
 		}
 
+		this.getRelease()
 		//init wisnuc folder
-		try{
-			console.log(`init wisnuc...`)
-			let isWisnucExist = await mkdirp(this.wisnucPath)
-			if (isWisnucExist) {
-				console.log(`wisnuc folder not exist`)
-				// has path : wisnuc folder not exist
-				await this.getRelease()
-			}else {
-				console.log(`wisnuc folder exist`)
-				//path is null : wisnuc folder exist
-				let wisnucFiles = await fs.readdirAsync(this.wisnucPath)
-				if (wisnucFiles.length == 0) await this.getRelease()
-			}
+		// try{
+		// 	console.log(`init wisnuc...`)
+		// 	let isWisnucExist = await mkdirp(this.wisnucPath)
+		// 	if (isWisnucExist) {
+		// 		console.log(`wisnuc folder not exist`)
+		// 		// has path : wisnuc folder not exist
+		// 		await this.getRelease()
+		// 	}else {
+		// 		console.log(`wisnuc folder exist`)
+		// 		//path is null : wisnuc folder exist
+		// 		let wisnucFiles = await fs.readdirAsync(this.wisnucPath)
+		// 		if (wisnucFiles.length == 0) await this.getRelease()
+		// 	}
 			
-		}catch(e) {
-			console.log(`init wisnuc error : ${e}`)
-			throw e
-		}
+		// }catch(e) {
+		// 	console.log(`init wisnuc error : ${e}`)
+		// 	throw e
+		// }
 	}
 
 	addEvent(event) {

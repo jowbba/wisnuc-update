@@ -18,11 +18,15 @@ class UpdateTask {
 		this.tarball_url = event.payload.release.tarball_url
 		this.zipball_url = event.payload.release.zipball_url
 		this.state = 'ready'
+
 		this.dirPath = path.join(this.schedule.cachedirPath, this.tag)
 		this.configPath = path.join(this.dirPath, 'event.json')
-		this.ballTempPath = path.join(this.schedule.tempdirPath, this.tag) + '.tar.gz'
-		this.ballPath = path.join(this.dirPath, this.tag) + '.tar.gz'
-		this.tarPath = path.join(this.dirPath, this.tag) + '.tar'
+		this.releasePath = path.join(this.dirPath, 'release')
+
+		this.ballPath = path.join(this.schedule.tempdirPath, this.tag) + '.tar.gz'
+		this.tarPath = path.join(this.schedule.tempdirPath, this.tag) + '.tar'	
+
+		// log todo
 	}
 
 	setState(nextState) {
@@ -40,6 +44,8 @@ class UpdateTask {
 				this.leaveZlibState()
 				break
 		}
+
+		this.state = nextState
 
 		switch (nextState) {
 			case 'log' :
@@ -71,21 +77,34 @@ class UpdateTask {
 
 	leaveDownloadState() {
 		console.log(`${this.tag} leave download state`)
+		// create release folder as release target
+		mkdirp(this.releasePath)
 	}
 
-	leaveZlibState() {
-		console.log(`${this.tag} leave zlib state`)	
+	async leaveZlibState() {
+		// move release dir from tag folder to wisnuc folder
+		console.log(`${this.tag} leave zlib state`)
+		try {
+			let dir = await fs.readdirAsync(this.releasePath)
+			if (dir.length != 1) throw new Error('number of file in release folder is wrong')
+			let wisnucPath = path.join(this.releasePath, dir[0])
+			console.log(wisnucPath)
+		} catch(e) {
+			console.log('read release dir error ', e)
+		}
 	}
 
 	async enterLogState() {
 		console.log(`${this.tag} enter log state`)
-		this.state = 'log'
 		try{
 			console.log('正在log...')
+
 			mkdirp(this.dirPath)
-			console.log('创建tag文件夹...')
+			console.log('创建tag文件夹')
+
 			let createConfig = await fs.writeFileAsync(this.configPath, JSON.stringify(this.event, undefined, '\t'))
-			console.log('创建event文件...', createConfig)
+			console.log('创建event文件', createConfig)
+
 			this.setState('download')
 		}catch(e) {
 			console.log(`对task进行log出错`, e)
@@ -94,7 +113,6 @@ class UpdateTask {
 
 	async enterDownloadState() {
 		console.log(`${this.tag} enter download state`)
-		this.state = 'download'
 
 		let options = {
 			url: this.tarball_url,
@@ -104,7 +122,7 @@ class UpdateTask {
 			}
 		}
 		let index = 0
-		let stream = fs.createWriteStream(this.ballTempPath)
+		let stream = fs.createWriteStream(this.ballPath)
 		stream.on('drain', () => {
 			if (index != 15) index++
 			else {
@@ -114,11 +132,7 @@ class UpdateTask {
 		})
 		stream.on('finish', () => {
 			console.log(`tag ball has been written finish`)
-			fs.rename(this.ballTempPath, this.ballPath, err => {
-				if (err) throw err
-				console.log('file move success')
-				this.setState('zlib')
-			})
+			this.setState('zlib')
 		})
 		stream.on('error', err => console.log('stream error : ', err))
 
@@ -136,7 +150,7 @@ class UpdateTask {
 			console.log(`.gz has been extracted`)
 			// extract tar ball after gz has been extracted
 			let input = fs.createReadStream(this.tarPath)
-			let output = tar.extract(this.dirPath)
+			let output = tar.extract(this.releasePath)
 			output.on('finish', () => {
 				console.log(`.tar has been extract`)
 				this.setState('service')
