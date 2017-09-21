@@ -3,6 +3,7 @@ var fs = promise.promisifyAll(require('fs'))
 var { spawn } = require('child_process')
 var path = require('path')
 var zlib = require('zlib')
+var os = require('os')
 var tar = require('tar-fs')
 var request = require('request')
 var mkdirp = require('mkdirp')
@@ -163,6 +164,8 @@ class UpdateTask {
 
 	enterServiceState() {
 		console.log(`${this.tag} enter service state`)
+		if (os.platform() != 'linux') return console.log('type of os is not linux')
+		
 	}
 }
 

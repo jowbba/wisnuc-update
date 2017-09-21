@@ -6,12 +6,15 @@ var rimraf = promise.promisify(require('rimraf'))
 var updateCreater = require('./updateTask')
 var {serverGet} = require('../utils/server')
 
+const dirPath = path.join(__dirname, '../', '../')
+
 class Schedule {
 	constructor() {
-		this.configPath = path.join(process.cwd(), 'config.json')
-		this.cachedirPath = path.join(process.cwd(), 'cache')
-		this.tempdirPath = path.join(process.cwd(), 'temp')
-		this.wisnucPath = path.join(process.cwd(), 'wisnuc')
+		this.configPath = path.join(dirPath, 'config.json')
+		this.cachedirPath = path.join(dirPath, 'cache')
+		this.tempdirPath = path.join(dirPath, 'temp')
+		this.wisnucPath = path.join(dirPath, 'wisnuc')
+		this.optionsPath = path.join(dirPath, 'options.js')
 		this.tasks = []
 		this.working = []
 		this.finish = []
@@ -21,12 +24,12 @@ class Schedule {
 	}
 
 	async init() {
-		console.log(`begin init...`)
 
+		console.log(`begin init...`)
 		//init options
 		try {
 			console.log(`init options...`)
-			let options = fs.readFileSync(path.join(process.cwd(), 'options.js'), {encoding: 'utf-8'})
+			let options = fs.readFileSync(this.optionsPath, {encoding: 'utf-8'})
 			if (options) this.options = require('../../options.js')
 		}catch (e) {
 			console.log(`get options error : ${e}`)
@@ -65,25 +68,6 @@ class Schedule {
 		}
 
 		this.getRelease()
-		//init wisnuc folder
-		// try{
-		// 	console.log(`init wisnuc...`)
-		// 	let isWisnucExist = await mkdirp(this.wisnucPath)
-		// 	if (isWisnucExist) {
-		// 		console.log(`wisnuc folder not exist`)
-		// 		// has path : wisnuc folder not exist
-		// 		await this.getRelease()
-		// 	}else {
-		// 		console.log(`wisnuc folder exist`)
-		// 		//path is null : wisnuc folder exist
-		// 		let wisnucFiles = await fs.readdirAsync(this.wisnucPath)
-		// 		if (wisnucFiles.length == 0) await this.getRelease()
-		// 	}
-			
-		// }catch(e) {
-		// 	console.log(`init wisnuc error : ${e}`)
-		// 	throw e
-		// }
 	}
 
 	addEvent(event) {
