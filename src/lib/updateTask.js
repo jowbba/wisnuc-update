@@ -39,7 +39,7 @@ class UpdateTask {
 				this.leaveLogState()
 				break
 			case 'download':
-				this.leaveDownloadState()
+				await this.leaveDownloadState()
 				break
 			case 'zlib':
 				await this.leaveZlibState()
@@ -76,10 +76,10 @@ class UpdateTask {
 		console.log(`${this.tag} leave log state`)
 	}
 
-	leaveDownloadState() {
+	async leaveDownloadState() {
 		console.log(`${this.tag} leave download state`)
 		// create release folder as release target
-		mkdirp(this.releasePath)
+		await mkdirp(this.releasePath)
 	}
 
 	async leaveZlibState() {
