@@ -30,7 +30,7 @@ class UpdateTask {
 		// log todo
 	}
 
-	setState(nextState) {
+	async setState(nextState) {
 		switch (this.state) {
 			case 'ready': 
 				this.leaveReadyState()
@@ -42,7 +42,7 @@ class UpdateTask {
 				this.leaveDownloadState()
 				break
 			case 'zlib':
-				this.leaveZlibState()
+				await this.leaveZlibState()
 				break
 		}
 
@@ -100,7 +100,7 @@ class UpdateTask {
 		try{
 			console.log('正在log...')
 
-			mkdirp(this.dirPath)
+			await mkdirp(this.dirPath)
 			console.log('创建tag文件夹')
 
 			let createConfig = await fs.writeFileAsync(this.configPath, JSON.stringify(this.event, undefined, '\t'))
@@ -165,9 +165,20 @@ class UpdateTask {
 	enterServiceState() {
 		console.log(`${this.tag} enter service state`)
 		if (os.platform() != 'linux') return console.log('type of os is not linux')
-		if (this.schedule.service == '') {
+
+
+		//stop service
+		if (this.schedule.service !== '') {
 			//service not exist
+		}else {
+			// service exist & stop service
 		}
+
+		//edit service config
+
+		//enable service
+
+		//start service
 	}
 }
 
