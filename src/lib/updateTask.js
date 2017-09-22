@@ -165,7 +165,9 @@ class UpdateTask {
 	enterServiceState() {
 		console.log(`${this.tag} enter service state`)
 		if (os.platform() != 'linux') return console.log('type of os is not linux')
-		
+		if (this.schedule.service == '') {
+			//service not exist
+		}
 	}
 }
 
