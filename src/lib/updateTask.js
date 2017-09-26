@@ -205,12 +205,18 @@ class UpdateTask {
 
 		// write service config file
 		await fs.writeFileAsync(servicePath, this.getService(nodePath, path.join(this.wisnucPath, this.schedule.options.entry)))
+		log(`wisnuc service has been written`, 'Progress')
 
 		// load wisnuc service
 		execSync('sudo systemctl daemon-reload')
 		execSync('sudo systemctl enable wisnuc.service')
 		execSync('sudo systemctl start wisnuc.service')
+		log(`wisnuc service has been started`, `Progresss`)
 
+		//writeConfig
+		await this.schedule.writeConfig({version: parseFloat(this.tag), working: true, service: this.wisnucPath})
+
+		this.schedule.next()
 	}
 
 	getService(nodePath, wisnucPath) {

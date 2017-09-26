@@ -87,6 +87,15 @@ class Schedule {
 		}
 	}
 
+	next() {
+		this.lock = false
+		this.schedule()
+	}
+
+	err() {
+		
+	}
+
 	async getRelease() {
 		log(`get lastest release`, 'Warning')
 		let url = this.options.githubRepository
@@ -106,6 +115,7 @@ class Schedule {
 	}
 
 	async writeConfig(obj) {
+		let configObj = Object.assign({}, this.config, obj)
 		await fs.writeFileAsync(this.configPath, JSON.stringify(obj))
 		this.config = obj
 	}
