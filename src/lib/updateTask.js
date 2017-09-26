@@ -1,6 +1,6 @@
 var promise = require('bluebird')
 var fs = promise.promisifyAll(require('fs'))
-var { spawn } = require('child_process')
+var { execSync } = require('child_process')
 var path = require('path')
 var zlib = require('zlib')
 var os = require('os')
@@ -8,6 +8,7 @@ var tar = require('tar-fs')
 var request = require('request')
 var mkdirp = require('mkdirp')
 var rimraf = require('rimraf')
+var log = require('./log')
 
 
 class UpdateTask {
@@ -18,6 +19,7 @@ class UpdateTask {
 		this.tag = event.payload.release.tag_name
 		this.tarball_url = event.payload.release.tarball_url
 		this.zipball_url = event.payload.release.zipball_url
+		this.wisnucPath = ''
 		this.state = 'ready'
 
 		this.dirPath = path.join(this.schedule.cachedirPath, this.tag)
@@ -59,61 +61,61 @@ class UpdateTask {
 				this.enterZlibState()
 				break
 			case 'service':
-				this.enterServiceState()
+				await this.enterServiceState()
 		}
 	}
 
 	beginUpdate() {
-		console.log(`${this.tag} begin update`)
+		log(`${this.tag} begin update`, 'Warning')
 		this.setState('log')
 	}
 
 	leaveReadyState() {
-		console.log(`${this.tag} leave ready state`)
+		log(`${this.tag} leave ready state`)
 	}
 
 	leaveLogState() {
-		console.log(`${this.tag} leave log state`)
+		log(`${this.tag} leave log state`)
 	}
 
 	async leaveDownloadState() {
-		console.log(`${this.tag} leave download state`)
+		log(`${this.tag} leave download state`)
 		// create release folder as release target
 		await mkdirp(this.releasePath)
 	}
 
 	async leaveZlibState() {
 		// move release dir from tag folder to wisnuc folder
-		console.log(`${this.tag} leave zlib state`)
+		log(`${this.tag} leave zlib state`)
 		try {
 			let dir = await fs.readdirAsync(this.releasePath)
 			if (dir.length != 1) throw new Error('number of file in release folder is wrong')
-			let wisnucPath = path.join(this.releasePath, dir[0])
-			console.log(wisnucPath)
+			this.wisnucPath = path.join(this.releasePath, dir[0])
+			log('wisnucPath is : ' + this.wisnucPath, 'Warning')
 		} catch(e) {
-			console.log('read release dir error ', e)
+			log('read release dir error : ' + e, 'Error')
 		}
 	}
 
 	async enterLogState() {
-		console.log(`${this.tag} enter log state`)
+		log(`${this.tag} enter log state`)
 		try{
-			console.log('正在log...')
+			log('正在log...', 'Progress')
 
 			await mkdirp(this.dirPath)
-			console.log('创建tag文件夹')
+			log('创建tag文件夹', 'Progress')
 
 			let createConfig = await fs.writeFileAsync(this.configPath, JSON.stringify(this.event, undefined, '\t'))
-			console.log('创建event文件', createConfig)
+			log('创建event文件', 'Progress')
 
 			this.setState('download')
 		}catch(e) {
-			console.log(`对task进行log出错`, e)
+			log(`对task进行log出错` + e, 'Error')
 		}
 	}
 
-	async enterDownloadState() {
-		console.log(`${this.tag} enter download state`)
+	enterDownloadState() {
+		log(`${this.tag} enter download state`)
 
 		let options = {
 			url: this.tarball_url,
@@ -125,35 +127,36 @@ class UpdateTask {
 		let index = 0
 		let stream = fs.createWriteStream(this.ballPath)
 		stream.on('drain', () => {
-			if (index != 15) index++
+			console.log('..')
+			if (index !== 1) index++
 			else {
-				console.log(`tag ball has been written ${(stream.bytesWritten/1024/1024).toFixed(2)} M`)
+				log(`tag ball has been written ${(stream.bytesWritten/1024/1024).toFixed(2)} M`, 'Progress')
 				index = 0
 			}
 		})
 		stream.on('finish', () => {
-			console.log(`tag ball has been written finish`)
+			log(`tag ball has been written finish`, 'Progress')
 			this.setState('zlib')
 		})
-		stream.on('error', err => console.log('stream error : ', err))
+		stream.on('error', err => log('stream error : ' + err, 'Error'))
 
 		let handle = request(options)
-		handle.on('error', err => console.log('request error:', err))
-		handle.on('response', res => console.log(`get response : `, res.statusCode))
+		handle.on('error', err => log('request error:' + err, 'Error'))
+		handle.on('response', res => log(`get response : ` + res.statusCode, 'Progress'))
 		handle.pipe(stream)
 	}
 
 	enterZlibState() {
-		console.log(`${this.tag} enter zlib state`)
+		log(`${this.tag} enter zlib state`)
 		let input = fs.createReadStream(this.ballPath)
 		let output = fs.createWriteStream(this.tarPath)
 		output.on('finish', () => {
-			console.log(`.gz has been extracted`)
+			log(`.gz has been extracted`, 'Progress')
 			// extract tar ball after gz has been extracted
 			let input = fs.createReadStream(this.tarPath)
 			let output = tar.extract(this.releasePath)
 			output.on('finish', () => {
-				console.log(`.tar has been extract`)
+				log(`.tar has been extract`, 'Progress')
 				this.setState('service')
 			})
 			input.pipe(output)
@@ -162,23 +165,56 @@ class UpdateTask {
 		input.pipe(z).pipe(output)
 	}
 
-	enterServiceState() {
-		console.log(`${this.tag} enter service state`)
-		if (os.platform() != 'linux') return console.log('type of os is not linux')
+	async enterServiceState() {
+		log(`${this.tag} enter service state`)
+		let nodePath = path.normalize('/usr/bin/node')
+		let systemPath = path.normalize('/usr/lib/systemd/system')
+		let servicePath = path.normalize('/usr/lib/systemd/system/wisnuc.service')
+		
+		if (os.platform() != 'linux') return log('type of os is not linux', 'Error')
 
 
-		//stop service
-		if (this.schedule.service !== '') {
-			//service not exist
-		}else {
-			// service exist & stop service
+		// create /usr/lib/systemd/system dir
+		try {
+			let isSysExist = fs.existsSync(systemPath)
+			if (!isSysExist) {
+				log(`system folder not exist & create it`, 'Progress')
+				await fs.mkdirAsync(systemPath)
+			}else {
+				log(`system folder exist`, 'Progress')
+			}
+		}catch (e) {
+			log(`create system folder error ` + e, 'Error')
 		}
 
-		//edit service config
+		// check is nodejs exist
+		let isNodeExist = fs.existsSync(nodePath)
+		if (!isNodeExist) {
+			throw new Error('nodejs not exist')
+		}else {
+			log(`node exist`, 'Progress')
+		}
 
-		//enable service
+		// stop wisnuc.service
+		try {
+			execSync('sudo systemctl stop wisnuc.service')
+			log('wisnuc service has been stoped', 'Progress')
+		}catch(e) {
+			log('stop wisnuc error maybe wisnuc has not been init', 'Progress')
+		}finally {}
 
-		//start service
+		// write service config file
+		await fs.writeFileAsync(servicePath, this.getService(nodePath, path.join(this.wisnucPath, this.schedule.options.entry)))
+
+		// load wisnuc service
+		execSync('sudo systemctl daemon-reload')
+		execSync('sudo systemctl enable wisnuc.service')
+		execSync('sudo systemctl start wisnuc.service')
+
+	}
+
+	getService(nodePath, wisnucPath) {
+		return `[Unit]\nDescription=Wisnuc service\n[Service]\nExecStart=${nodePath} ${wisnucPath}\nType=idle\nRestart=always\n[Install]\nWantedBy=multi-user.target`
 	}
 }
 

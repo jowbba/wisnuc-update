@@ -5,6 +5,7 @@ var mkdirp = promise.promisify(require('mkdirp'))
 var rimraf = promise.promisify(require('rimraf'))
 var updateCreater = require('./updateTask')
 var {serverGet} = require('../utils/server')
+var log = require('./log')
 
 const dirPath = path.join(__dirname, '../', '../')
 
@@ -25,48 +26,46 @@ class Schedule {
 
 	async init() {
 
-		console.log(`begin init...`)
+		await log(`begin init`, 'Warning')
 		//init options
 		try {
-			console.log(`init options...`)
+			log(`init options...`,)
 			let options = fs.readFileSync(this.optionsPath, {encoding: 'utf-8'})
 			if (options) this.options = require('../../options.js')
 		}catch (e) {
-			console.log(`get options error : ${e}`)
+			log(`get options error : ${e}`, 'Error')
 			throw e
 		}
 
 		//remove temp folder & create temp/cache directory
 		try {
-			console.log(`init folder...`)
+			log(`init folder...`)
 			await rimraf(this.tempdirPath)
 			await mkdirp(this.tempdirPath)
 			await mkdirp(this.cachedirPath)
 		}catch(e) {
-			console.log(`create dir error : ${e}`)
+			log(`create dir error : ${e}`, 'Error')
 			throw e
 		}
 
 		//init config
 		try {
-			console.log(`init config...`)
+			log(`init config...`)
 			let isConfigExist = fs.existsSync(this.configPath)
 			if (isConfigExist) {
-				console.log(`config exist`)
+				log(`config exist`, 'Progress')
 				//config exist & read config
 				let result = fs.readFileSync(this.configPath, {encoding: 'utf-8'})
 				this.config = JSON.parse(result)
 			}else {
-				console.log(`config not exist`)
+				log(`config not exist`, 'Progress')
 				//config not exist & create config
-				await fs.writeFileAsync(this.configPath, JSON.stringify({version: 0, service: ''}))
-				this.config = {version: 0}
+				await this.writeConfig({version: 0, service: '', working: false})
 			}
 		}catch (e) {
-			console.log(`init config error : ${e}`)
+			log(`init config error : ${e}`, 'Error')
 			throw e
 		}
-
 		this.getRelease()
 	}
 
@@ -81,7 +80,7 @@ class Schedule {
 		if (this.lock) return
 		//else run task in readylist
 		if (this.tasks.length) {
-			console.log('add task into schedule')
+			log('add task into schedule')
 			this.lock = true
 			this.working.push(this.tasks.splice(0, 1)[0])
 			this.working[0].beginUpdate()
@@ -89,22 +88,26 @@ class Schedule {
 	}
 
 	async getRelease() {
-		console.log(`get lastest release`)
+		log(`get lastest release`, 'Warning')
 		let url = this.options.githubRepository
-		console.log(url)
 		try{
 			let release = await serverGet(this.options.githubRepository, { 'User-Agent': '411981379@qq.com'})
 			let version = parseFloat(release.tag_name)
 			if (version > this.config.version) {
-				console.log(`need download new release`)
+				log(`need download new release`, 'Progress')
 				let eventObj = { payload : {release }, event: 'getRelease'}
 				this.addEvent(eventObj)
 			}else {
-				console.log(`not need to download`)
+				log(`not need to download`, 'Progress')
 			}
 		}catch (e) {
-			console.log(e, `get lastest release error`)
+			log(e + `get lastest release error`, 'Error')
 		}
+	}
+
+	async writeConfig(obj) {
+		await fs.writeFileAsync(this.configPath, JSON.stringify(obj))
+		this.config = obj
 	}
 }
 
