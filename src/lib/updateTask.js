@@ -110,7 +110,7 @@ class UpdateTask {
 
 			this.setState('download')
 		}catch(e) {
-			log(`对task进行log出错` + e, 'Error')
+			this.err(`对task进行log出错` + e)
 		}
 	}
 
@@ -127,7 +127,6 @@ class UpdateTask {
 		let index = 0
 		let stream = fs.createWriteStream(this.ballPath)
 		stream.on('drain', () => {
-			console.log('..')
 			if (index !== 1) index++
 			else {
 				log(`tag ball has been written ${(stream.bytesWritten/1024/1024).toFixed(2)} M`, 'Progress')
@@ -138,10 +137,10 @@ class UpdateTask {
 			log(`tag ball has been written finish`, 'Progress')
 			this.setState('zlib')
 		})
-		stream.on('error', err => log('stream error : ' + err, 'Error'))
+		stream.on('error', err => this.err('stream error : ' + err))
 
 		let handle = request(options)
-		handle.on('error', err => log('request error:' + err, 'Error'))
+		handle.on('error', err => this.err('request error:' + err))
 		handle.on('response', res => log(`get response : ` + res.statusCode, 'Progress'))
 		handle.pipe(stream)
 	}
@@ -200,12 +199,19 @@ class UpdateTask {
 			execSync('sudo systemctl stop wisnuc.service')
 			log('wisnuc service has been stoped', 'Progress')
 		}catch(e) {
-			log('stop wisnuc error maybe wisnuc has not been init', 'Progress')
-		}finally {}
+			log('stop wisnuc error maybe wisnuc has not been init', 'Error')
+		}finally {
+			this.schedule.writeConfig({working: false})
+		}
 
 		// write service config file
-		await fs.writeFileAsync(servicePath, this.getService(nodePath, path.join(this.wisnucPath, this.schedule.options.entry)))
-		log(`wisnuc service has been written`, 'Progress')
+		try {
+			await fs.writeFileAsync(servicePath, this.getService(nodePath, path.join(this.wisnucPath, this.schedule.options.entry)))
+			log(`wisnuc service has been written`, 'Progress')
+			this.schedule.writeConfig({version: parseFloat(this.tag), service: this.wisnucPath})
+		}catch (e) {
+			log('write service config file error' + e, 'Error')
+		}
 
 		// load wisnuc service
 		execSync('sudo systemctl daemon-reload')
@@ -214,13 +220,22 @@ class UpdateTask {
 		log(`wisnuc service has been started`, `Progresss`)
 
 		//writeConfig
-		await this.schedule.writeConfig({version: parseFloat(this.tag), working: true, service: this.wisnucPath})
+		await this.schedule.writeConfig({working: true})
 
 		this.schedule.next()
 	}
 
 	getService(nodePath, wisnucPath) {
 		return `[Unit]\nDescription=Wisnuc service\n[Service]\nExecStart=${nodePath} ${wisnucPath}\nType=idle\nRestart=always\n[Install]\nWantedBy=multi-user.target`
+	}
+
+	err(e) {
+		if (e) log(e, 'Error')
+		log('there is error in update, restart update', 'Warning')
+		rimraf(this.dirPath, () => {
+			this.state = 'ready'
+			this.beginUpdate()
+		})
 	}
 }
 

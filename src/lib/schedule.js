@@ -43,7 +43,7 @@ class Schedule {
 			await rimraf(this.tempdirPath)
 			await mkdirp(this.tempdirPath)
 			await mkdirp(this.cachedirPath)
-		}catch(e) {
+		}catch (e) {
 			log(`create dir error : ${e}`, 'Error')
 			throw e
 		}
