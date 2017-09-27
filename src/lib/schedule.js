@@ -12,10 +12,10 @@ const dirPath = path.join(__dirname, '../', '../')
 class Schedule {
 	constructor() {
 		this.configPath = path.join(dirPath, 'config.json')
+		this.optionsPath = path.join(dirPath, 'options.js')
 		this.cachedirPath = path.join(dirPath, 'cache')
 		this.tempdirPath = path.join(dirPath, 'temp')
 		this.wisnucPath = path.join(dirPath, 'wisnuc')
-		this.optionsPath = path.join(dirPath, 'options.js')
 		this.tasks = []
 		this.working = []
 		this.finish = []
@@ -26,7 +26,7 @@ class Schedule {
 
 	async init() {
 
-		await log(`begin init`, 'Warning')
+		log(`begin init`, 'Warning')
 		//init options
 		try {
 			log(`init options...`,)
