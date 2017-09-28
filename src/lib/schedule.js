@@ -4,7 +4,7 @@ var path = require('path')
 var mkdirp = promise.promisify(require('mkdirp'))
 var rimraf = promise.promisify(require('rimraf'))
 var updateCreater = require('./updateTask')
-var {serverGet} = require('../utils/server')
+var { serverGet } = require('../utils/server')
 var log = require('./log')
 
 const dirPath = path.join(__dirname, '../', '../')
@@ -25,7 +25,6 @@ class Schedule {
 	}
 
 	async init() {
-
 		log(`begin init`, 'Warning')
 		//init options
 		try {
@@ -34,17 +33,6 @@ class Schedule {
 			if (options) this.options = require('../../options.js')
 		}catch (e) {
 			log(`get options error : ${e}`, 'Error')
-			throw e
-		}
-
-		//remove temp folder & create temp/cache directory
-		try {
-			log(`init folder...`)
-			await rimraf(this.tempdirPath)
-			await mkdirp(this.tempdirPath)
-			await mkdirp(this.cachedirPath)
-		}catch (e) {
-			log(`create dir error : ${e}`, 'Error')
 			throw e
 		}
 
@@ -66,6 +54,18 @@ class Schedule {
 			log(`init config error : ${e}`, 'Error')
 			throw e
 		}
+
+		//remove temp folder & create temp/cache directory
+		try {
+			log(`init folder...`)
+			await rimraf(this.tempdirPath)
+			await mkdirp(this.tempdirPath)
+			await mkdirp(this.cachedirPath)
+		}catch (e) {
+			log(`create dir error : ${e}`, 'Error')
+			throw e
+		}
+
 		this.getRelease()
 	}
 
@@ -89,6 +89,7 @@ class Schedule {
 
 	next() {
 		this.lock = false
+		this.finish.push(this.working.splice(0,1)[0])
 		this.schedule()
 	}
 
@@ -100,7 +101,7 @@ class Schedule {
 		log(`get lastest release`, 'Warning')
 		let url = this.options.githubRepository
 		try{
-			let release = await serverGet(this.options.githubRepository, { 'User-Agent': '411981379@qq.com'})
+			let release = await serverGet(this.options.githubRepository, { 'User-Agent': '4111s981379@qq.com'})
 			let version = parseFloat(release.tag_name)
 			if (version > this.config.version) {
 				log(`need download new release`, 'Progress')
@@ -116,8 +117,8 @@ class Schedule {
 
 	async writeConfig(obj) {
 		let configObj = Object.assign({}, this.config, obj)
-		await fs.writeFileAsync(this.configPath, JSON.stringify(obj))
-		this.config = obj
+		await fs.writeFileAsync(this.configPath, JSON.stringify(configObj))
+		this.config = configObj
 	}
 }
 

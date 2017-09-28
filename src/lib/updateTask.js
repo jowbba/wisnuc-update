@@ -27,7 +27,7 @@ class UpdateTask {
 		this.releasePath = path.join(this.dirPath, 'release')
 
 		this.ballPath = path.join(this.schedule.tempdirPath, this.tag) + '.tar.gz'
-		this.tarPath = path.join(this.schedule.tempdirPath, this.tag) + '.tar'	
+		this.tarPath = path.join(this.schedule.tempdirPath, this.tag) + '.tar'
 
 		// log todo
 	}
@@ -183,7 +183,7 @@ class UpdateTask {
 				log(`system folder exist`, 'Progress')
 			}
 		}catch (e) {
-			log(`create system folder error ` + e, 'Error')
+			return log(`create system folder error ` + e, 'Error')
 		}
 
 		// check is nodejs exist
@@ -201,23 +201,28 @@ class UpdateTask {
 		}catch(e) {
 			log('stop wisnuc error maybe wisnuc has not been init', 'Error')
 		}finally {
-			this.schedule.writeConfig({working: false})
+			await this.schedule.writeConfig({working: false})
 		}
 
 		// write service config file
 		try {
 			await fs.writeFileAsync(servicePath, this.getService(nodePath, path.join(this.wisnucPath, this.schedule.options.entry)))
 			log(`wisnuc service has been written`, 'Progress')
-			this.schedule.writeConfig({version: parseFloat(this.tag), service: this.wisnucPath})
+			await this.schedule.writeConfig({version: parseFloat(this.tag), service: this.wisnucPath})
 		}catch (e) {
-			log('write service config file error' + e, 'Error')
+			return this.err('write service config file error' + e, 'Error')
 		}
 
-		// load wisnuc service
-		execSync('sudo systemctl daemon-reload')
-		execSync('sudo systemctl enable wisnuc.service')
-		execSync('sudo systemctl start wisnuc.service')
-		log(`wisnuc service has been started`, `Progresss`)
+		try {
+			// load wisnuc service
+			execSync('sudo systemctl daemon-reload')
+			execSync('sudo systemctl enable wisnuc.service')
+			execSync('sudo systemctl start wisnuc.service')
+			log(`wisnuc service has been started`, `Progresss`)
+		}catch (e) {
+			log(`load wisnuc service error` + e, 'Error' )
+		}
+		
 
 		//writeConfig
 		await this.schedule.writeConfig({working: true})

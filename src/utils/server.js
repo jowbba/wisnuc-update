@@ -6,6 +6,7 @@ var serverGet = (url, headers={}, qs={}) => {
 		request(options, (err, res) => {
 			if (err) reject(err)
 			else if (res.statusCode != 200) {
+				console.log(res.headers)
 				let e = new Error('http status code not 200')
       	e.code = 'EHTTPSTATUS'
       	e.status = res.statusCode
